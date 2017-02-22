@@ -62,6 +62,8 @@ var SVGReader = function(selector){
       elec.data(data);
     });
 
+    self.updateActive();
+    self.dispatchActivePixels();
   };
 
   self.turnOffAllPixels = function(){

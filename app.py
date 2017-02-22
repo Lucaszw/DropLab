@@ -23,7 +23,7 @@ def ByteArray(length, on):
         z.append (('0b' + ''.join(a[j*8 : j*8+8])))
     return(z)
 
-def WriteToRegister(ser, onBits = (1, 11, 26), numBits = 128 ):
+def WriteToRegister(ser, onBits = (1, 11, 26), numBits = 64 ):
     z = ByteArray(numBits, onBits)
     e = []
     for k in range(0, len(z)):
