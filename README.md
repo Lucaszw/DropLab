@@ -11,7 +11,7 @@ Install Python and Node JS Dependencies:
 
 # Usage
 
-Start with run.sh:
+To run:
 
     python app.py
 
