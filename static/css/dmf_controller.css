@@ -1,0 +1,13 @@
+.file_button_container,
+.file_button_container input {
+     height: 47px;
+     width: 263px;
+ }
+
+ .file_button_container {
+     background: blue;
+ }
+
+ .file_button_container input {
+     opacity: 0;
+ }
