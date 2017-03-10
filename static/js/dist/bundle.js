@@ -41079,10 +41079,13 @@ class Procedure extends React.Component {
     this.addStepBtn = { icon: "plus", content: "Add", color: "green" };
     this.stopBtn = { icon: "square", content: "Stop", color: "yellow" };
     this.playBtn = { icon: "play", content: "Play", color: "blue" };
+    this.loopBtn = { icon: "repeat", content: "Loop", color: "orange" };
+
     this.removeStepBtn = { icon: "remove", content: "Remove", color: "red" };
 
     this.modes = {
       running: "running",
+      looping: "looping",
       stopped: "stopped"
     };
 
@@ -41093,12 +41096,21 @@ class Procedure extends React.Component {
     };
   }
 
-  getModeButton() {
+  getPlayBtn() {
     return this.state.mode == this.modes.stopped ? this.playBtn : this.stopBtn;
+  }
+  getLoopBtn() {
+    let btn = this.loopBtn;
+    if (this.state.mode != this.modes.stopped) {
+      btn.disabled = true;
+    } else {
+      delete btn.disabled;
+    }
+    return btn;
   }
 
   toggleDisabledButtons() {
-    if (this.state.mode == this.modes.running) {
+    if (this.state.mode != this.modes.stopped) {
       this.addStepBtn.disabled = true;
       this.removeStepBtn.disabled = true;
     } else {
@@ -41114,11 +41126,23 @@ class Procedure extends React.Component {
 
   handleChangeModeClicked(e) {
     e.preventDefault();
-    if (this.state.mode == this.modes.running) {
-      this.setState({ mode: this.modes.stopped, sequenceIndex: 0 });
+    if (this.state.mode == this.modes.stopped) {
+      let self = this;
+      this.setState({ mode: this.modes.running }, function () {
+        this.props.sequence.runRecipe(self);
+      });
     } else {
-      this.setState({ mode: this.modes.running });
-      this.props.sequence.runRecipe(this);
+      this.setState({ mode: this.modes.stopped, sequenceIndex: 0 });
+    }
+  }
+
+  handleLoopModeClicked(e) {
+    e.preventDefault();
+    if (this.state.mode == this.modes.stopped) {
+      let self = this;
+      this.setState({ mode: this.modes.looping }, function () {
+        this.props.sequence.runRecipe(self);
+      });
     }
   }
 
@@ -41128,8 +41152,8 @@ class Procedure extends React.Component {
   }
 
   handleLoadClicked(e) {
-
     e.preventDefault();
+
     var file = e.target.files[0];
     if (!file) return;
 
@@ -41152,13 +41176,15 @@ class Procedure extends React.Component {
 
   render() {
 
-    const modeBtn = this.getModeButton();
+    const playBtn = this.getPlayBtn();
+    const loopBtn = this.getLoopBtn();
 
     const handleAddStepClicked = this.handleAddStepClicked.bind(this);
     const handleChangeModeClicked = this.handleChangeModeClicked.bind(this);
     const handleRemoveStepClicked = this.handleRemoveStepClicked.bind(this);
     const handleSaveClicked = this.handleSaveClicked.bind(this);
     const handleLoadClicked = this.handleLoadClicked.bind(this);
+    const handleLoopModeClicked = this.handleLoopModeClicked.bind(this);
 
     this.toggleDisabledButtons();
 
@@ -41183,7 +41209,9 @@ class Procedure extends React.Component {
         React.createElement(__WEBPACK_IMPORTED_MODULE_0_semantic_ui_react__["b" /* Button */], _extends({ circular: true, size: "mini", onClick: handleRemoveStepClicked
         }, this.removeStepBtn)),
         React.createElement(__WEBPACK_IMPORTED_MODULE_0_semantic_ui_react__["b" /* Button */], _extends({ circular: true, size: "mini", onClick: handleChangeModeClicked
-        }, modeBtn))
+        }, playBtn)),
+        React.createElement(__WEBPACK_IMPORTED_MODULE_0_semantic_ui_react__["b" /* Button */], _extends({ circular: true, size: "mini", onClick: handleLoopModeClicked
+        }, loopBtn))
       ),
       React.createElement(
         __WEBPACK_IMPORTED_MODULE_0_semantic_ui_react__["a" /* Segment */],
@@ -41233,14 +41261,33 @@ Procedure.Sequence = class {
   runRecipe(procedure) {
     let self = this;
 
-    if (procedure.state.sequenceIndex < procedure.state.electrodeSequence.length) {
+    let atEndOfSequence = procedure.state.sequenceIndex >= procedure.state.electrodeSequence.length;
+    let isLooping = procedure.state.mode == procedure.modes.looping;
+    let isRunning = procedure.state.mode != procedure.modes.stopped;
+    let keepRunning = true;
+
+    // If looping and sequence is over, start running again:
+    if (atEndOfSequence && isLooping) {
+      procedure.setState({ sequenceIndex: 0 }, function () {
+        self.loadStep(procedure);
+        setTimeout(function () {
+          self.runRecipe(procedure);
+        }, 1000);
+      });
+      return;
+    }
+
+    // If not at end of sequence, run the next step in procedure
+    if (!atEndOfSequence && isRunning) {
       self.loadStep(procedure);
       setTimeout(function () {
         self.runRecipe(procedure);
       }, 1000);
-    } else {
-      procedure.setState({ mode: procedure.modes.stopped, sequenceIndex: 0 });
+      return;
     }
+
+    // End procedure if above to cases were not executed:
+    procedure.setState({ mode: procedure.modes.stopped });
   }
 
   setActiveElectrodes(arr) {
