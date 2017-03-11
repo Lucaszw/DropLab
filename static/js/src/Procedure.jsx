@@ -209,7 +209,7 @@ Procedure.Sequence = class {
     }
 
     // End procedure if above to cases were not executed:
-    procedure.setState({mode: procedure.modes.stopped});
+    procedure.setState({mode: procedure.modes.stopped, sequenceIndex: 0});
 
   }
 

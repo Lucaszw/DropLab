@@ -41048,13 +41048,22 @@ var config = function (sequence) {
         componentName: 'electrode control',
         componentState: {}
       }, {
-        type: 'react-component',
-        component: 'procedure',
-        props: {
-          sequence: sequence,
-          sequenceIndex: 0
-        },
-        width: 30
+        type: 'column',
+        content: [{
+          type: 'react-component',
+          component: 'procedure',
+          props: {
+            sequence: sequence,
+            sequenceIndex: 0
+          },
+          title: 'Procedure'
+        }, {
+          type: 'react-component',
+          component: 'legend',
+          title: 'Legend',
+          height: 20
+        }],
+        width: 40
       }]
     }]
   };
@@ -41152,8 +41161,8 @@ class Procedure extends React.Component {
   }
 
   handleLoadClicked(e) {
-    e.preventDefault();
 
+    e.preventDefault();
     var file = e.target.files[0];
     if (!file) return;
 
@@ -41287,7 +41296,7 @@ Procedure.Sequence = class {
     }
 
     // End procedure if above to cases were not executed:
-    procedure.setState({ mode: procedure.modes.stopped });
+    procedure.setState({ mode: procedure.modes.stopped, sequenceIndex: 0 });
   }
 
   setActiveElectrodes(arr) {
@@ -46303,10 +46312,18 @@ exports.Socket = __webpack_require__(438);
 /* 446 */
 /***/ (function(module, exports, __webpack_require__) {
 
-/* WEBPACK VAR INJECTION */(function($, _) {var SVGReader = function(selector){
+/* WEBPACK VAR INJECTION */(function($, _) {var ElectrodeColors = {
+  off: "blue",
+  active: "rgb(62, 191, 156)",
+  constant: "rgb(158, 65, 75)"
+};
+
+var SVGReader = function(selector){
   var self = this;
 
   self.activePixels = new Array();
+  self.contantPixels = new Array();
+
   self.activePixelsUpdatedEvent = new Event('activePixelsUpdated');
   self.selector = selector;
 
@@ -46316,14 +46333,22 @@ exports.Socket = __webpack_require__(438);
     $("polygon").mousedown(self.click).mouseup(self.mouseIn);
   }
 
-  self.click = function(){
+  self.click = function(e){
+    var constClicked = (e.metaKey == true);
+
+    var color = (constClicked) ? ElectrodeColors.constant : ElectrodeColors.active;
+
     // When clicked, update which pixels are turned on
     var elec = $(this);
     var data = elec.data();
+
     data.on = data.on ? undefined : "on";
+
+    if (constClicked) data.constant = data.constant ? undefined : "constant";
+
     elec.data(data);
 
-    elec.css("fill",data.on ? "rgb(62, 191, 156)" : "blue");
+    elec.css("fill",data.on ? color : ElectrodeColors.off);
 
     self.updateActive();
     self.dispatchActivePixels();
@@ -46352,22 +46377,23 @@ exports.Socket = __webpack_require__(438);
   self.mouseOut = function(){$(this).css("opacity","1");}
 
   self.setActive = function(pixels) {
+    var oldConstantPixels = _.clone(self.constantPixels);
+
+    // Turn of all pixels
     self.turnOffAllPixels();
 
-    let selected = _.filter($("polygon"), function(p){
-      return _.contains(pixels, $(p).data().channels);
-    });
+    // Turn on all input pixels:
+    var selectedPixels = _.filter($("polygon"), (p) =>  _.contains(pixels, $(p).data().channels));
+    var constantPixels = _.filter($("polygon"), (p) =>  _.contains(oldConstantPixels, $(p).data().channels));
 
-    _.each(selected, function(p){
-      let elec = $(p);
-      let data = elec.data();
-      data.on = "on";
+    // Turn on pixels:
+    _.each(selectedPixels, self.turnOnActivePixel);
+    _.each(constantPixels, self.turnOnConstantPixel);
 
-      elec.css("fill","rgb(62, 191, 156)");
-      elec.data(data);
-    });
-
+    // Update state of SVG Reader:
     self.updateActive();
+
+    // Dispatch the new pixel states:
     self.dispatchActivePixels();
   };
 
@@ -46378,7 +46404,7 @@ exports.Socket = __webpack_require__(438);
       let data = elec.data();
       data.on = undefined;
 
-      elec.css("fill","blue");
+      elec.css("fill",ElectrodeColors.off);
       elec.data(data);
 
     });
@@ -46386,10 +46412,32 @@ exports.Socket = __webpack_require__(438);
     self.updateActive();
   };
 
+  self.turnOnActivePixel = function(p){
+    let elec = $(p);
+    let data = elec.data();
+    data.on = "on";
+    elec.css("fill",ElectrodeColors.active);
+    elec.data(data);
+  };
+
+  self.turnOnConstantPixel = function(p){
+    let elec = $(p);
+    let data = elec.data();
+    console.log(data);
+    data.on = "on";
+    data.constant  = "constant";
+    elec.css("fill",ElectrodeColors.constant);
+    elec.data(data);
+  };
+
   self.updateActive = function(){
-    // Send an event indicating the pixels currently on need updating
-    var polygons = _.filter($("polygon"), function(p){return $(p).data().on == "on"});
-    self.activePixels = _.map(polygons, function(p){return $(p).data().channels});
+    // Update list of active pixels to match state of SVG polygons
+    var pixels = _.filter($("polygon"), function(p){return $(p).data().on == "on"});
+    self.activePixels = _.map(pixels, function(p){return $(p).data().channels});
+
+    // Also store pixels held constant (as these have different rules)
+    var constantPixels = _.filter(pixels, function(p){return $(p).data().constant == "constant"});
+    self.constantPixels = _.map(constantPixels, function(p){return $(p).data().channels});
   };
 
 };
@@ -81730,7 +81778,7 @@ module.exports = __webpack_amd_options__;
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* WEBPACK VAR INJECTION */(function($) {Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
+/* WEBPACK VAR INJECTION */(function(React, $) {Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_socket_io_client__ = __webpack_require__(445);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0_socket_io_client___default = __webpack_require__.n(__WEBPACK_IMPORTED_MODULE_0_socket_io_client__);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1_golden_layout__ = __webpack_require__(444);
@@ -81757,29 +81805,46 @@ window.mySequence = new __WEBPACK_IMPORTED_MODULE_3__Procedure_jsx__["a" /* defa
 var myLayout = new __WEBPACK_IMPORTED_MODULE_1_golden_layout___default.a(__webpack_require__.i(__WEBPACK_IMPORTED_MODULE_2__Layout_jsx__["a" /* default */])(mySequence));
 
 var turnOnPixels = function (e) {
-    // Emit to python app which pixels need to be turned on
-    window.mySequence.setActiveElectrodes(e.data);
-    socket.emit('change pixels', { data: e.data });
+  // Emit to python app which pixels need to be turned on
+  window.mySequence.setActiveElectrodes(e.data);
+  socket.emit('change pixels', { data: e.data });
 };
 
 myLayout.registerComponent('procedure', __WEBPACK_IMPORTED_MODULE_3__Procedure_jsx__["a" /* default */]);
+myLayout.registerComponent('legend', function () {
+  return React.createElement(
+    'div',
+    null,
+    React.createElement(
+      'b',
+      null,
+      'Single Click: Add Electrode to Current Step'
+    ),
+    React.createElement('br', null),
+    React.createElement(
+      'b',
+      null,
+      'CMD + Click: Add electrode as constant outside of procedure'
+    )
+  );
+});
 
 myLayout.registerComponent('electrode control', function (container, componentState) {
-    container.getElement().html('<div id="svgContainer"></div>');
-    $(document).ready(function () {
-        // Ensure the DOM is loaded before initialzing a SVG Reader Object
-        var selector = "#svgContainer";
+  container.getElement().html('<div id="svgContainer"></div>');
+  $(document).ready(function () {
+    // Ensure the DOM is loaded before initialzing a SVG Reader Object
+    var selector = "#svgContainer";
 
-        window.mySequence.setSVGReader(new __WEBPACK_IMPORTED_MODULE_4__SVGReader___default.a(selector));
-        window.mySequence.svgReader.load();
+    window.mySequence.setSVGReader(new __WEBPACK_IMPORTED_MODULE_4__SVGReader___default.a(selector));
+    window.mySequence.svgReader.load();
 
-        // Ensure SVG Reader is loaded before adding an event listener
-        $(selector)[0].addEventListener('activePixelsUpdated', turnOnPixels, false);
-    });
+    // Ensure SVG Reader is loaded before adding an event listener
+    $(selector)[0].addEventListener('activePixelsUpdated', turnOnPixels, false);
+  });
 });
 
 myLayout.init();
-/* WEBPACK VAR INJECTION */}.call(__webpack_exports__, __webpack_require__(143)))
+/* WEBPACK VAR INJECTION */}.call(__webpack_exports__, __webpack_require__(1), __webpack_require__(143)))
 
 /***/ })
 /******/ ]);

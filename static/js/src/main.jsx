@@ -21,7 +21,19 @@ var turnOnPixels = function(e){
   socket.emit('change pixels', {data: e.data});
 };
 
+
 myLayout.registerComponent( 'procedure', Procedure);
+myLayout.registerComponent( 'legend', function(){
+  return(
+    <div>
+      <b>Single Click: Add Electrode to Current Step</b>
+      <br />
+      <b>CMD + Click: Add electrode as constant outside of procedure</b>
+    </div>
+  );
+}
+
+);
 
 myLayout.registerComponent( 'electrode control', function( container, componentState ){
     container.getElement().html( '<div id="svgContainer"></div>');

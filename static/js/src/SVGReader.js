@@ -1,7 +1,15 @@
+var ElectrodeColors = {
+  off: "blue",
+  active: "rgb(62, 191, 156)",
+  constant: "rgb(158, 65, 75)"
+};
+
 var SVGReader = function(selector){
   var self = this;
 
   self.activePixels = new Array();
+  self.contantPixels = new Array();
+
   self.activePixelsUpdatedEvent = new Event('activePixelsUpdated');
   self.selector = selector;
 
@@ -11,14 +19,22 @@ var SVGReader = function(selector){
     $("polygon").mousedown(self.click).mouseup(self.mouseIn);
   }
 
-  self.click = function(){
+  self.click = function(e){
+    var constClicked = (e.metaKey == true);
+
+    var color = (constClicked) ? ElectrodeColors.constant : ElectrodeColors.active;
+
     // When clicked, update which pixels are turned on
     var elec = $(this);
     var data = elec.data();
+
     data.on = data.on ? undefined : "on";
+
+    if (constClicked) data.constant = data.constant ? undefined : "constant";
+
     elec.data(data);
 
-    elec.css("fill",data.on ? "rgb(62, 191, 156)" : "blue");
+    elec.css("fill",data.on ? color : ElectrodeColors.off);
 
     self.updateActive();
     self.dispatchActivePixels();
@@ -47,22 +63,23 @@ var SVGReader = function(selector){
   self.mouseOut = function(){$(this).css("opacity","1");}
 
   self.setActive = function(pixels) {
+    var oldConstantPixels = _.clone(self.constantPixels);
+
+    // Turn of all pixels
     self.turnOffAllPixels();
 
-    let selected = _.filter($("polygon"), function(p){
-      return _.contains(pixels, $(p).data().channels);
-    });
+    // Turn on all input pixels:
+    var selectedPixels = _.filter($("polygon"), (p) =>  _.contains(pixels, $(p).data().channels));
+    var constantPixels = _.filter($("polygon"), (p) =>  _.contains(oldConstantPixels, $(p).data().channels));
 
-    _.each(selected, function(p){
-      let elec = $(p);
-      let data = elec.data();
-      data.on = "on";
+    // Turn on pixels:
+    _.each(selectedPixels, self.turnOnActivePixel);
+    _.each(constantPixels, self.turnOnConstantPixel);
 
-      elec.css("fill","rgb(62, 191, 156)");
-      elec.data(data);
-    });
-
+    // Update state of SVG Reader:
     self.updateActive();
+
+    // Dispatch the new pixel states:
     self.dispatchActivePixels();
   };
 
@@ -73,7 +90,7 @@ var SVGReader = function(selector){
       let data = elec.data();
       data.on = undefined;
 
-      elec.css("fill","blue");
+      elec.css("fill",ElectrodeColors.off);
       elec.data(data);
 
     });
@@ -81,10 +98,32 @@ var SVGReader = function(selector){
     self.updateActive();
   };
 
+  self.turnOnActivePixel = function(p){
+    let elec = $(p);
+    let data = elec.data();
+    data.on = "on";
+    elec.css("fill",ElectrodeColors.active);
+    elec.data(data);
+  };
+
+  self.turnOnConstantPixel = function(p){
+    let elec = $(p);
+    let data = elec.data();
+    console.log(data);
+    data.on = "on";
+    data.constant  = "constant";
+    elec.css("fill",ElectrodeColors.constant);
+    elec.data(data);
+  };
+
   self.updateActive = function(){
-    // Send an event indicating the pixels currently on need updating
-    var polygons = _.filter($("polygon"), function(p){return $(p).data().on == "on"});
-    self.activePixels = _.map(polygons, function(p){return $(p).data().channels});
+    // Update list of active pixels to match state of SVG polygons
+    var pixels = _.filter($("polygon"), function(p){return $(p).data().on == "on"});
+    self.activePixels = _.map(pixels, function(p){return $(p).data().channels});
+
+    // Also store pixels held constant (as these have different rules)
+    var constantPixels = _.filter(pixels, function(p){return $(p).data().constant == "constant"});
+    self.constantPixels = _.map(constantPixels, function(p){return $(p).data().channels});
   };
 
 };
